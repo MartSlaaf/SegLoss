@@ -3,7 +3,7 @@ get_tp_fp_fn, SoftDiceLoss, and DC_and_CE/TopK_loss are from https://github.com/
 """
 
 import torch
-from ND_Crossentropy import CrossentropyND, TopKLoss, WeightedCrossEntropyLoss
+from .ND_Crossentropy import CrossentropyND, TopKLoss, WeightedCrossEntropyLoss
 from torch import nn
 from torch.autograd import Variable
 from torch import einsum
@@ -115,7 +115,7 @@ class GDiceLoss(nn.Module):
 
         if self.apply_nonlin is not None:
             net_output = self.apply_nonlin(net_output)
-    
+
         # copy from https://github.com/LIVIAETS/surface-loss/blob/108bd9892adca476e6cdf424124bc6268707498e/losses.py#L29
         w: torch.Tensor = 1 / (einsum("bcxyz->bc", y_onehot).type(torch.float32) + 1e-10)**2
         intersection: torch.Tensor = w * einsum("bcxyz, bcxyz->bc", net_output, y_onehot)
@@ -210,7 +210,7 @@ class SSLoss(nn.Module):
         shp_x = net_output.shape
         shp_y = gt.shape
         # class_num = shp_x[1]
-        
+
         with torch.no_grad():
             if len(shp_x) != len(shp_y):
                 gt = gt.view((shp_y[0], 1, *shp_y[1:]))
@@ -232,7 +232,7 @@ class SSLoss(nn.Module):
 
         if self.apply_nonlin is not None:
             net_output = self.apply_nonlin(net_output)
-        
+
         # no object value
         bg_onehot = 1 - y_onehot
         squared_error = (y_onehot - net_output)**2
@@ -253,7 +253,7 @@ class SSLoss(nn.Module):
 
 
 class SoftDiceLoss(nn.Module):
-    def __init__(self, apply_nonlin=None, batch_dice=False, do_bg=True, smooth=1.,
+    def __init__(self, apply_nonlin=softmax_helper, batch_dice=False, do_bg=True, smooth=1.,
                  square=False):
         """
         paper: https://arxiv.org/pdf/1606.04797.pdf
@@ -291,11 +291,11 @@ class SoftDiceLoss(nn.Module):
         return -dc
 
 class IoULoss(nn.Module):
-    def __init__(self, apply_nonlin=None, batch_dice=False, do_bg=True, smooth=1.,
+    def __init__(self, apply_nonlin=softmax_helper, batch_dice=False, do_bg=True, smooth=1.,
                  square=False):
         """
         paper: https://link.springer.com/chapter/10.1007/978-3-319-50835-1_22
-        
+
         """
         super(IoULoss, self).__init__()
 
@@ -331,7 +331,7 @@ class IoULoss(nn.Module):
         return -iou
 
 class TverskyLoss(nn.Module):
-    def __init__(self, apply_nonlin=None, batch_dice=False, do_bg=True, smooth=1.,
+    def __init__(self, apply_nonlin=softmax_helper, batch_dice=False, do_bg=True, smooth=1.,
                  square=False):
         """
         paper: https://arxiv.org/pdf/1706.05721.pdf
@@ -376,8 +376,11 @@ class FocalTversky_loss(nn.Module):
     paper: https://arxiv.org/pdf/1810.07842.pdf
     author code: https://github.com/nabsabraham/focal-tversky-unet/blob/347d39117c24540400dfe80d106d2fb06d2b99e1/losses.py#L65
     """
-    def __init__(self, tversky_kwargs, gamma=0.75):
+    def __init__(self, tversky_kwargs=None, gamma=0.75):
         super(FocalTversky_loss, self).__init__()
+
+        tversky_kwargs = {} if tversky_kwargs is None else tversky_kwargs
+
         self.gamma = gamma
         self.tversky = TverskyLoss(**tversky_kwargs)
 
@@ -427,11 +430,15 @@ class AsymLoss(nn.Module):
         return -asym
 
 class DC_and_CE_loss(nn.Module):
-    def __init__(self, soft_dice_kwargs, ce_kwargs, aggregate="sum"):
+    def __init__(self, soft_dice_kwargs=None, ce_kwargs=None, aggregate="sum"):
         super(DC_and_CE_loss, self).__init__()
+
+        soft_dice_kwargs = {} if soft_dice_kwargs is None else soft_dice_kwargs
+        ce_kwargs = {} if ce_kwargs is None else ce_kwargs
+
         self.aggregate = aggregate
         self.ce = CrossentropyND(**ce_kwargs)
-        self.dc = SoftDiceLoss(apply_nonlin=softmax_helper, **soft_dice_kwargs)
+        self.dc = SoftDiceLoss(**soft_dice_kwargs)
 
     def forward(self, net_output, target):
         dc_loss = self.dc(net_output, target)
@@ -457,7 +464,7 @@ class PenaltyGDiceLoss(nn.Module):
 
         return penalty_gdc
 
-        
+
 
 class DC_and_topk_loss(nn.Module):
     def __init__(self, soft_dice_kwargs, ce_kwargs, aggregate="sum"):

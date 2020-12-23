@@ -3,6 +3,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from .dice_loss import softmax_helper
+
 
 class FocalLoss(nn.Module):
     """
@@ -19,7 +21,7 @@ class FocalLoss(nn.Module):
     :param size_average: (bool, optional) By default, the losses are averaged over each loss element in the batch.
     """
 
-    def __init__(self, apply_nonlin=None, alpha=None, gamma=2, balance_index=0, smooth=1e-5, size_average=True):
+    def __init__(self, apply_nonlin=softmax_helper, alpha=None, gamma=2, balance_index=0, smooth=1e-5, size_average=True):
         super(FocalLoss, self).__init__()
         self.apply_nonlin = apply_nonlin
         self.alpha = alpha
@@ -45,7 +47,7 @@ class FocalLoss(nn.Module):
         target = torch.squeeze(target, 1)
         target = target.view(-1, 1)
         # print(logit.shape, target.shape)
-        # 
+        #
         alpha = self.alpha
 
         if alpha is None:
@@ -61,7 +63,7 @@ class FocalLoss(nn.Module):
 
         else:
             raise TypeError('Not support alpha type')
-        
+
         if alpha.device != logit.device:
             alpha = alpha.to(logit.device)
 
@@ -90,4 +92,4 @@ class FocalLoss(nn.Module):
             loss = loss.sum()
         return loss
 
-    
+
