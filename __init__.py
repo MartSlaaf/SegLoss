@@ -1,1 +1,1 @@
-from losses_pytorch import *
+from .losses_pytorch import *
